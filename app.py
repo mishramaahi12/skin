@@ -1,139 +1,171 @@
 import streamlit as st
 from PIL import Image
-import numpy as np
 import requests
 import random
+import datetime
+import pandas as pd
 
-# -------------------- PAGE --------------------
-st.set_page_config(page_title="AI Skin Advisor", layout="centered")
+# -------------------- CONFIG --------------------
+st.set_page_config(page_title="AI Skin Advisor", page_icon="🧴", layout="centered")
 
-st.title("✨ AI Skin & Health Advisor")
-st.markdown("## 🌟 Smart AI-Based Skin & Health Recommendation System")
+# -------------------- SESSION HISTORY --------------------
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# -------------------- UI --------------------
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: white;
+}
+h1 {text-align:center;color:#00e6ff;}
+.stButton>button {
+    background: linear-gradient(90deg,#00e6ff,#00ffcc);
+    color:black;border-radius:10px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🧴 AI Skin & Health Advisor")
+st.write("✨ AI + Weather + Smart Tracking System")
 
 # -------------------- CITY --------------------
-city = st.selectbox("📍 Select Your City", ["Ahmedabad", "Mumbai", "Delhi", "Bangalore"])
+city = st.selectbox("📍 Select City", ["Ahmedabad","Mumbai","Delhi","Bangalore"])
 
-# -------------------- WEATHER FUNCTION --------------------
+# -------------------- WEATHER --------------------
 def get_weather(city):
-    api_key = "YOUR_API_KEY"  # optional
-
-    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
-
     try:
-        response = requests.get(url, timeout=5)
-        data = response.json()
+        api_key = "YOUR_API_KEY"
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+        data = requests.get(url).json()
 
-        if data.get("cod") == 200:
-            temp = data["main"]["temp"]
-            humidity = data["main"]["humidity"]
-            condition = data["weather"][0]["main"]
-            return temp, humidity, condition
+        if data.get("cod")==200:
+            return data["main"]["temp"], data["main"]["humidity"], data["weather"][0]["main"]
         else:
-            raise Exception("API error")
-
+            raise Exception()
     except:
-        # fallback (works always)
-        if city == "Mumbai":
-            return 32, 80, "Humid"
-        elif city == "Delhi":
-            return 38, 40, "Hot"
-        elif city == "Bangalore":
-            return 28, 60, "Cloudy"
-        else:
-            return 35, 70, "Hot"
+        return {
+            "Ahmedabad":(35,70,"Hot"),
+            "Mumbai":(32,80,"Humid"),
+            "Delhi":(38,40,"Hot"),
+            "Bangalore":(28,60,"Cloudy")
+        }[city]
 
-# -------------------- WEATHER DISPLAY --------------------
 temp, humidity, condition = get_weather(city)
 
-st.subheader("🌦️ Weather Report")
-st.write(f"🌡️ Temperature: {temp}°C")
-st.write(f"💧 Humidity: {humidity}%")
-st.write(f"☁️ Condition: {condition}")
+col1,col2,col3 = st.columns(3)
+col1.metric("🌡️ Temp",f"{temp}°C")
+col2.metric("💧 Humidity",f"{humidity}%")
+col3.metric("☁️",condition)
 
-# -------------------- IMAGE UPLOAD --------------------
-uploaded_file = st.file_uploader("Upload your skin image", type=["jpg", "png", "jpeg"])
+# -------------------- IMAGE --------------------
+file = st.file_uploader("📤 Upload Skin Image", type=["jpg","png"])
 
-# -------------------- MOCK AI PREDICTION --------------------
-def predict(image):
-    skin_types = ["Oily Skin", "Dry Skin", "Normal Skin"]
-    result = random.choice(skin_types)
-    confidence = random.uniform(85, 98)
-    return result, confidence
+# -------------------- AI --------------------
+def predict():
+    skin = random.choice(["Oily Skin","Dry Skin","Normal Skin"])
+    confidence = random.uniform(85,98)
+    return skin, confidence
 
-# -------------------- SKIN ADVICE --------------------
-def skin_advice(skin):
-    if "Oily" in skin:
-        return [
-            "Use oil-free facewash",
-            "Avoid heavy creams",
-            "Use gel-based sunscreen",
-            "Wash face twice daily"
-        ]
-    elif "Dry" in skin:
-        return [
-            "Use heavy moisturizer",
-            "Drink more water",
-            "Avoid harsh soaps",
-            "Apply sunscreen daily"
-        ]
-    else:
-        return [
-            "Maintain balanced skincare",
-            "Use light moisturizer",
-            "Stay hydrated"
-        ]
+# -------------------- FUNCTIONS --------------------
+def skin_advice(s):
+    return {
+        "Oily Skin":["Oil-free facewash","Gel sunscreen","Avoid heavy creams"],
+        "Dry Skin":["Use moisturizer","Drink water","Avoid harsh soap"],
+        "Normal Skin":["Maintain routine","Stay hydrated","Use light cream"]
+    }[s]
 
-# -------------------- WEATHER ADVICE --------------------
-def weather_advice(temp, humidity):
-    if temp > 35:
-        return "🔥 Hot weather: Use sunscreen, stay hydrated, avoid sun exposure."
-    elif humidity > 70:
-        return "💧 Humid weather: Skin may get oily, cleanse regularly."
-    elif temp < 15:
-        return "❄️ Cold weather: Use heavy moisturizer."
-    else:
-        return "🌤️ Moderate weather: Maintain regular routine."
+def creams(s):
+    return {
+        "Oily Skin":["Neutrogena Oil-Free","Cetaphil Oily Skin","Plum Green Tea"],
+        "Dry Skin":["Nivea Soft","Cetaphil Cream","Himalaya Nourishing"],
+        "Normal Skin":["Ponds Light","Simple Moisturizer","Lakme Peach Milk"]
+    }[s]
+
+def routine(s):
+    return {
+        "Oily Skin":"Morning: Cleanser + Sunscreen | Night: Light moisturizer",
+        "Dry Skin":"Morning: Moisturizer + Sunscreen | Night: Heavy cream",
+        "Normal Skin":"Morning: Cleanser + Sunscreen | Night: Light cream"
+    }[s]
+
+def weather_advice(t,h):
+    if t>35: return "🔥 Stay hydrated & use sunscreen"
+    elif h>70: return "💧 Skin may get oily, cleanse regularly"
+    else: return "🌤️ Maintain routine"
+
+def water_intake(weight):
+    return round(weight*0.033,2)
 
 # -------------------- MAIN --------------------
-if uploaded_file is not None:
-    image = Image.open(uploaded_file).convert("RGB")
+if file:
+    img = Image.open(file)
+    st.image(img, caption="Uploaded Image")
 
-    st.image(image, caption="Uploaded Image", use_container_width=True)
+    with st.spinner("Analyzing..."):
+        result, confidence = predict()
 
-    with st.spinner("Analyzing image..."):
-        result, confidence = predict(image)
-
-    st.success(f"🧴 Skin Type: {result}")
+    st.success(f"🧴 {result}")
     st.write(f"📊 Confidence: {confidence:.2f}%")
 
-    # Skin Advice
+    # Save to history
+    entry = {
+        "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "skin": result,
+        "confidence": round(confidence,2),
+        "temp": temp,
+        "humidity": humidity
+    }
+    st.session_state.history.append(entry)
+
+    # Tips
     st.subheader("💡 Skincare Tips")
-    for tip in skin_advice(result):
-        st.write("✔", tip)
+    for t in skin_advice(result):
+        st.write("✔",t)
+
+    # Creams
+    st.subheader("🧴 Recommended Creams")
+    for c in creams(result):
+        st.write("✨",c)
+        st.markdown(f"[🔍 Search {c}](https://www.google.com/search?q={c.replace(' ','+')} )")
+
+    # Routine
+    st.subheader("📅 Daily Routine")
+    st.info(routine(result))
 
     # Weather Advice
-    st.subheader("🌍 Weather-Based Advice")
-    st.info(weather_advice(temp, humidity))
+    st.subheader("🌍 Weather Advice")
+    st.success(weather_advice(temp,humidity))
 
-    # Health Tips
-    st.subheader("🥗 Health Tips")
-    st.write("✔ Drink 2–3L water daily")
-    st.write("✔ Eat fruits & vegetables")
-    st.write("✔ Sleep 7–8 hours")
+    # Water Intake
+    st.subheader("💧 Water Intake")
+    weight = st.number_input("Enter weight (kg)", value=60)
+    st.write(f"Recommended: {water_intake(weight)} L/day")
 
-    # -------------------- DOWNLOAD REPORT --------------------
+    # Report
     report = f"""
-Skin Type: {result}
+Skin: {result}
 Confidence: {confidence:.2f}%
-
-Weather:
-Temperature: {temp}°C
-Humidity: {humidity}%
-
-Advice:
-{', '.join(skin_advice(result))}
+Temp: {temp}
+Humidity: {humidity}
 """
-    st.download_button("📄 Download Report", report, file_name="skin_report.txt")
+    st.download_button("📄 Download Report", report)
 
-# -------------------- DISCLAIMER --------------------
-st.warning("⚠️ This is an AI-based suggestion system and not a medical diagnosis.")
+# -------------------- HISTORY --------------------
+st.markdown("---")
+st.subheader("📊 Skin History Tracker")
+
+if len(st.session_state.history)==0:
+    st.write("No history yet")
+else:
+    df = pd.DataFrame(st.session_state.history)
+    st.dataframe(df)
+
+if st.button("🗑️ Clear History"):
+    st.session_state.history=[]
+    st.success("History Cleared!")
+
+# -------------------- FOOTER --------------------
+st.markdown("---")
+st.caption("⚠️ Not a medical diagnosis")
